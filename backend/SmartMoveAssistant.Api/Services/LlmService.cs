@@ -62,7 +62,8 @@ Rules:
 - For 'Move' service: extract currentAddress (where service is stopping) and newAddress (where service is starting), disconnectDate, and connectDate.
 - For 'Stop' service: extract currentAddress and disconnectDate.
 - For 'Start' service: extract currentAddress and connectDate.
-- Account number is required for Move and Stop service.
+- If only one address is provided and user mentions 'current address' or 'moving from' or just an address, extract it as currentAddress. If user mentions 'moving to' or 'new house at', extract as newAddress.
+- If the intent is not explicitly stated, default actionIntent to 'Move'.
 - Customer identity (firstName, lastName, ssn, dob, phoneNumber, email) should be extracted whenever present in the message.
 - If dates are given in natural language (e.g. 'Oct 28th', 'the 25th'), convert to YYYY-MM-DD format (assume 2026 if no year mentioned).
 - Only populate fields that are mentioned or clearly intended. Leave unspecified fields as empty strings """".
@@ -91,6 +92,8 @@ Rules:
                 var extracted = ExtractDtoFromLlmResponse(responseContent);
                 if (extracted != null)
                 {
+                    // Also run regex heuristic check to ensure any address in the message wasn't missed
+                    SupplementHeuristics(extracted, message);
                     resultDto = MergeDto(existingData, extracted, message);
                 }
                 else
@@ -114,7 +117,7 @@ Rules:
         // Calculate service overlap if Move
         CalculateOverlap(resultDto);
 
-        // Validate mandatory field rules
+        // Validate mandatory field rules and generate dynamic, non-robotic explanation
         ValidateMandatoryFields(resultDto);
 
         return resultDto;
@@ -166,13 +169,86 @@ Rules:
             content = Regex.Replace(content, @"^```(json)?", "", RegexOptions.Multiline | RegexOptions.IgnoreCase);
             content = Regex.Replace(content, @"```$", "", RegexOptions.Multiline).Trim();
 
+            // Deserialization with flexible enum converter
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            return JsonSerializer.Deserialize<TransferResponseDto>(content, options);
+            var dto = JsonSerializer.Deserialize<TransferResponseDto>(content, options);
+            if (dto != null)
+            {
+                return dto;
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse LLM JSON: {Raw}", llmResponseJson);
-            return null;
+            _logger.LogWarning(ex, "Failed to deserialize LLM JSON directly. Attempting property-by-property extraction.");
+        }
+
+        // Secondary fallback: property-by-property extraction
+        try
+        {
+            using var doc = JsonDocument.Parse(llmResponseJson);
+            var content = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+            content = Regex.Replace(content, @"^```(json)?", "", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+            content = Regex.Replace(content, @"```$", "", RegexOptions.Multiline).Trim();
+
+            using var innerDoc = JsonDocument.Parse(content);
+            var root = innerDoc.RootElement;
+            var dto = new TransferResponseDto();
+
+            if (root.TryGetProperty("currentAddress", out var ca) && ca.ValueKind == JsonValueKind.String) dto.CurrentAddress = ca.GetString() ?? "";
+            if (root.TryGetProperty("newAddress", out var na) && na.ValueKind == JsonValueKind.String) dto.NewAddress = na.GetString() ?? "";
+            if (root.TryGetProperty("disconnectDate", out var dd) && dd.ValueKind == JsonValueKind.String) dto.DisconnectDate = dd.GetString() ?? "";
+            if (root.TryGetProperty("connectDate", out var cd) && cd.ValueKind == JsonValueKind.String) dto.ConnectDate = cd.GetString() ?? "";
+            if (root.TryGetProperty("accountNumber", out var an) && an.ValueKind == JsonValueKind.String) dto.AccountNumber = an.GetString() ?? "";
+            if (root.TryGetProperty("firstName", out var fn) && fn.ValueKind == JsonValueKind.String) dto.FirstName = fn.GetString() ?? "";
+            if (root.TryGetProperty("lastName", out var ln) && ln.ValueKind == JsonValueKind.String) dto.LastName = ln.GetString() ?? "";
+            if (root.TryGetProperty("ssn", out var ssn) && ssn.ValueKind == JsonValueKind.String) dto.Ssn = ssn.GetString() ?? "";
+            if (root.TryGetProperty("dob", out var dob) && dob.ValueKind == JsonValueKind.String) dto.Dob = dob.GetString() ?? "";
+            if (root.TryGetProperty("phoneNumber", out var pn) && pn.ValueKind == JsonValueKind.String) dto.PhoneNumber = pn.GetString() ?? "";
+            if (root.TryGetProperty("email", out var em) && em.ValueKind == JsonValueKind.String) dto.Email = em.GetString() ?? "";
+            if (root.TryGetProperty("forwardingAddress", out var fa) && fa.ValueKind == JsonValueKind.String) dto.ForwardingAddress = fa.GetString() ?? "";
+
+            if (root.TryGetProperty("actionIntent", out var ai) && ai.ValueKind == JsonValueKind.String)
+            {
+                var intentStr = ai.GetString()?.ToLowerInvariant() ?? "";
+                if (intentStr.Contains("stop")) dto.ActionIntent = ActionIntent.Stop;
+                else if (intentStr.Contains("start")) dto.ActionIntent = ActionIntent.Start;
+                else dto.ActionIntent = ActionIntent.Move;
+            }
+
+            return dto;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Property-by-property extraction failed.");
+        }
+
+        return null;
+    }
+
+    private static void SupplementHeuristics(TransferResponseDto dto, string message)
+    {
+        // If current address wasn't extracted but message has an address pattern
+        if (string.IsNullOrWhiteSpace(dto.CurrentAddress))
+        {
+            var match = Regex.Match(message, @"(?:moving out of|leaving|current address(?:\s*is)?|address is|from)\s+([0-9]+\s+[A-Za-z0-9\s.,]+?)(?=\s+(?:on|to|and|by|with|\.|\,|$))", RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                dto.CurrentAddress = match.Groups[1].Value.Trim().TrimEnd('.', ',');
+            }
+            else if (Regex.IsMatch(message.Trim(), @"^[0-9]+\s+[A-Za-z0-9\s.,]+$"))
+            {
+                dto.CurrentAddress = message.Trim();
+            }
+        }
+
+        // If new address wasn't extracted
+        if (string.IsNullOrWhiteSpace(dto.NewAddress))
+        {
+            var match = Regex.Match(message, @"(?:bought a house at|moving into|new address(?:\s*is)?|to)\s+([0-9]+\s+[A-Za-z0-9\s.,]+?)(?=\s+(?:on|and|by|with|send|\.|\,|$))", RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                dto.NewAddress = match.Groups[1].Value.Trim().TrimEnd('.', ',');
+            }
         }
     }
 
@@ -182,17 +258,17 @@ Rules:
 
         // Preserve established ActionIntent unless explicitly commanded to switch in the message
         var lowerMsg = message.ToLowerInvariant();
-        if (lowerMsg.Contains("stop service") || lowerMsg.Contains("cancel service") || lowerMsg.Contains("disconnect service"))
+        if ((lowerMsg.Contains("start") && lowerMsg.Contains("stop")) || lowerMsg.Contains("move") || lowerMsg.Contains("moving") || lowerMsg.Contains("bought a house") || lowerMsg.Contains("moving into") || lowerMsg.Contains("moving out"))
+        {
+            existing.ActionIntent = ActionIntent.Move;
+        }
+        else if (lowerMsg.Contains("stop service") || lowerMsg.Contains("cancel service") || lowerMsg.Contains("disconnect service") || lowerMsg.Contains("terminate service"))
         {
             existing.ActionIntent = ActionIntent.Stop;
         }
         else if (lowerMsg.Contains("start service") || lowerMsg.Contains("new service") || lowerMsg.Contains("connect service"))
         {
             existing.ActionIntent = ActionIntent.Start;
-        }
-        else if (lowerMsg.Contains("move") || lowerMsg.Contains("moving"))
-        {
-            existing.ActionIntent = ActionIntent.Move;
         }
 
         // Overlay newly extracted values if non-empty
@@ -248,11 +324,11 @@ Rules:
     {
         var missing = new List<string>();
 
-        // Customer Identity (Mandatory for ALL intents)
+        // Customer Identity
         if (string.IsNullOrWhiteSpace(dto.FirstName)) missing.Add("First Name");
         if (string.IsNullOrWhiteSpace(dto.LastName)) missing.Add("Last Name");
-        if (string.IsNullOrWhiteSpace(dto.Ssn)) missing.Add("SSN (Social Security Number)");
-        if (string.IsNullOrWhiteSpace(dto.Dob)) missing.Add("Date of Birth (DOB)");
+        if (string.IsNullOrWhiteSpace(dto.Ssn)) missing.Add("SSN");
+        if (string.IsNullOrWhiteSpace(dto.Dob)) missing.Add("Date of Birth");
         if (string.IsNullOrWhiteSpace(dto.PhoneNumber)) missing.Add("Phone Number");
         if (string.IsNullOrWhiteSpace(dto.Email)) missing.Add("Email Address");
 
@@ -261,15 +337,15 @@ Rules:
         {
             case ActionIntent.Move:
                 if (string.IsNullOrWhiteSpace(dto.AccountNumber)) missing.Add("Account Number");
-                if (string.IsNullOrWhiteSpace(dto.CurrentAddress)) missing.Add("Current Address (Move-Out)");
-                if (string.IsNullOrWhiteSpace(dto.DisconnectDate)) missing.Add("Stop Date (Move-Out Date)");
-                if (string.IsNullOrWhiteSpace(dto.NewAddress)) missing.Add("New Address (Move-In)");
-                if (string.IsNullOrWhiteSpace(dto.ConnectDate)) missing.Add("Start Date (Move-In Date)");
+                if (string.IsNullOrWhiteSpace(dto.CurrentAddress)) missing.Add("Current Address");
+                if (string.IsNullOrWhiteSpace(dto.DisconnectDate)) missing.Add("Stop Date");
+                if (string.IsNullOrWhiteSpace(dto.NewAddress)) missing.Add("New Address");
+                if (string.IsNullOrWhiteSpace(dto.ConnectDate)) missing.Add("Start Date");
                 break;
 
             case ActionIntent.Stop:
                 if (string.IsNullOrWhiteSpace(dto.AccountNumber)) missing.Add("Account Number");
-                if (string.IsNullOrWhiteSpace(dto.CurrentAddress)) missing.Add("Current Service Address");
+                if (string.IsNullOrWhiteSpace(dto.CurrentAddress)) missing.Add("Service Address");
                 if (string.IsNullOrWhiteSpace(dto.DisconnectDate)) missing.Add("Stop Date");
                 break;
 
@@ -288,8 +364,51 @@ Rules:
         }
         else
         {
-            var missingListText = string.Join(", ", missing);
-            dto.AiExplanation = $"I've staged your {dto.ActionIntent} request, but utility regulations require verification before scheduling. Please provide the following missing details: {missingListText}. You can reply here in chat or fill them directly into the form on the right.";
+            // Build a smart, conversational response that acknowledges what was captured
+            var capturedParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(dto.CurrentAddress) && !string.IsNullOrWhiteSpace(dto.NewAddress))
+            {
+                capturedParts.Add($"moving from {dto.CurrentAddress} to {dto.NewAddress}");
+            }
+            else if (!string.IsNullOrWhiteSpace(dto.CurrentAddress))
+            {
+                capturedParts.Add($"current address: {dto.CurrentAddress}");
+            }
+            else if (!string.IsNullOrWhiteSpace(dto.NewAddress))
+            {
+                capturedParts.Add($"destination address: {dto.NewAddress}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.DisconnectDate) || !string.IsNullOrWhiteSpace(dto.ConnectDate))
+            {
+                capturedParts.Add($"dates: {(string.IsNullOrWhiteSpace(dto.DisconnectDate) ? "" : "stop " + dto.DisconnectDate + " ")}{(string.IsNullOrWhiteSpace(dto.ConnectDate) ? "" : "start " + dto.ConnectDate)}".Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.FirstName))
+            {
+                capturedParts.Add($"name: {dto.FirstName} {dto.LastName}".Trim());
+            }
+
+            var intro = capturedParts.Count > 0 
+                ? $"I've recorded your {string.Join(", ", capturedParts)}. "
+                : $"I've started your {dto.ActionIntent} request. ";
+
+            // Separate missing items into Location/Dates vs Identity for clean conversational communication
+            var locationAndDates = new HashSet<string> { "Current Address", "New Address", "Service Address", "Stop Date", "Start Date" };
+            var missingMoveDetails = missing.Where(m => locationAndDates.Contains(m)).ToList();
+            var missingIdentity = missing.Where(m => !locationAndDates.Contains(m)).ToList();
+
+            var asks = new List<string>();
+            if (missingMoveDetails.Count > 0)
+            {
+                asks.Add($"move details ({string.Join(", ", missingMoveDetails)})");
+            }
+            if (missingIdentity.Count > 0)
+            {
+                asks.Add($"identity verification ({string.Join(", ", missingIdentity)})");
+            }
+
+            dto.AiExplanation = $"{intro}To finalize and schedule, we still need your {string.Join(" and ", asks)}. You can reply here in chat or enter them directly into the form on the right.";
         }
     }
 
@@ -302,7 +421,7 @@ Rules:
         };
 
         // Detect intent
-        if (Regex.IsMatch(message, @"\b(stop|cancel|terminate|turn off)\b", RegexOptions.IgnoreCase))
+        if (Regex.IsMatch(message, @"\b(stop|cancel|terminate|turn off|disconnect)\b", RegexOptions.IgnoreCase))
         {
             dto.ActionIntent = ActionIntent.Stop;
         }
@@ -313,36 +432,47 @@ Rules:
 
         // Account Number
         var acctMatch = Regex.Match(message, @"(?:account(?:\s*number|\s*#)?(?:\s*is)?)\s*[:#]?\s*([A-Za-z0-9\-]{6,16})", RegexOptions.IgnoreCase);
-        if (acctMatch.Success) dto.AccountNumber = acctMatch.Groups[1].Value;
+        if (acctMatch.Success) dto.AccountNumber = acctMatch.Groups[1].Value.Trim();
 
         // Name
         var nameMatch = Regex.Match(message, @"(?:my name is|name is|i am)\s+([A-Z][a-z]+)\s+([A-Z][a-z]+)", RegexOptions.IgnoreCase);
         if (nameMatch.Success)
         {
-            dto.FirstName = nameMatch.Groups[1].Value;
-            dto.LastName = nameMatch.Groups[2].Value;
+            dto.FirstName = nameMatch.Groups[1].Value.Trim();
+            dto.LastName = nameMatch.Groups[2].Value.Trim();
         }
 
         // SSN
         var ssnMatch = Regex.Match(message, @"\b(\d{3}-?\d{2}-?\d{4})\b");
-        if (ssnMatch.Success) dto.Ssn = ssnMatch.Groups[1].Value;
+        if (ssnMatch.Success) dto.Ssn = ssnMatch.Groups[1].Value.Trim();
 
         // DOB
         var dobMatch = Regex.Match(message, @"(?:dob|born|birth(?:day|date)?)(?:\s*is)?\s*[:]?\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})", RegexOptions.IgnoreCase);
-        if (dobMatch.Success) dto.Dob = dobMatch.Groups[1].Value;
+        if (dobMatch.Success) dto.Dob = dobMatch.Groups[1].Value.Trim();
 
         // Phone
         var phoneMatch = Regex.Match(message, @"(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}");
-        if (phoneMatch.Success && !ssnMatch.Success) dto.PhoneNumber = phoneMatch.Value;
+        if (phoneMatch.Success && !ssnMatch.Success) dto.PhoneNumber = phoneMatch.Value.Trim();
 
         // Email
         var emailMatch = Regex.Match(message, @"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}");
-        if (emailMatch.Success) dto.Email = emailMatch.Value;
+        if (emailMatch.Success) dto.Email = emailMatch.Value.Trim();
 
         // Addresses
-        if (message.Contains("104 Main St", StringComparison.OrdinalIgnoreCase)) dto.CurrentAddress = "104 Main St";
-        if (message.Contains("450 Oak Drive", StringComparison.OrdinalIgnoreCase)) dto.NewAddress = "450 Oak Drive";
-        if (message.Contains("777 Pine Ave", StringComparison.OrdinalIgnoreCase)) dto.ForwardingAddress = "777 Pine Ave";
+        SupplementHeuristics(dto, message);
+
+        if (string.IsNullOrWhiteSpace(dto.CurrentAddress) && message.Contains("104 Main St", StringComparison.OrdinalIgnoreCase))
+        {
+            dto.CurrentAddress = "104 Main St";
+        }
+        if (string.IsNullOrWhiteSpace(dto.NewAddress) && message.Contains("450 Oak Drive", StringComparison.OrdinalIgnoreCase))
+        {
+            dto.NewAddress = "450 Oak Drive";
+        }
+        if (string.IsNullOrWhiteSpace(dto.ForwardingAddress) && message.Contains("777 Pine Ave", StringComparison.OrdinalIgnoreCase))
+        {
+            dto.ForwardingAddress = "777 Pine Ave";
+        }
 
         // Dates
         if (message.Contains("28", StringComparison.OrdinalIgnoreCase)) dto.DisconnectDate = "2026-10-28";

@@ -1,7 +1,7 @@
 <template>
   <div class="h-full bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
     <!-- Header with Intent Tabs and Progress -->
-    <div class="px-5 py-4 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div class="px-5 py-3.5 border-b border-slate-100 bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div class="flex items-center space-x-2.5">
         <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-sm">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -13,10 +13,10 @@
           <div class="flex items-center space-x-2">
             <h2 class="text-sm font-bold text-slate-800">Transfer Summary & Order Form</h2>
             <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-              Interactive & Editable
+              Live & Editable
             </span>
           </div>
-          <p class="text-xs text-slate-500">Auto-extracted from conversation • Edit any field below</p>
+          <p class="text-xs text-slate-500">Auto-extracted from chat • Edit any field below</p>
         </div>
       </div>
 
@@ -24,38 +24,38 @@
       <button 
         @click="fillDemoData" 
         type="button"
-        class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 transition active:scale-95 shadow-2xs whitespace-nowrap self-start sm:self-auto"
-        title="Fill remaining mandatory fields with sample customer data for presentation"
+        class="inline-flex items-center justify-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 transition active:scale-95 shadow-2xs whitespace-nowrap self-start sm:self-auto cursor-pointer"
+        title="Fill remaining fields with demo customer data"
       >
         <span class="mr-1">⚡</span> Quick-Fill Identity
       </button>
     </div>
 
-    <!-- Intent Selector Tabs & Live Completion Bar -->
-    <div class="px-5 py-3 bg-white border-b border-slate-100">
+    <!-- Intent Tabs & Live Progress Bar -->
+    <div class="px-5 py-2.5 bg-white border-b border-slate-100">
       <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
         <!-- Intent Buttons -->
         <div class="inline-flex p-1 bg-slate-100 rounded-xl space-x-1 text-xs font-semibold">
           <button 
             @click="setIntent('Move')" 
             :class="[formData.actionIntent === 'Move' ? 'bg-white text-sky-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900']"
-            class="px-3 py-1 rounded-lg transition"
+            class="px-3 py-1 rounded-lg transition cursor-pointer"
           >
-            🚚 Move Service
+            🚚 Move
           </button>
           <button 
             @click="setIntent('Stop')" 
             :class="[formData.actionIntent === 'Stop' ? 'bg-white text-rose-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900']"
-            class="px-3 py-1 rounded-lg transition"
+            class="px-3 py-1 rounded-lg transition cursor-pointer"
           >
-            🛑 Stop Service
+            🛑 Stop
           </button>
           <button 
             @click="setIntent('Start')" 
             :class="[formData.actionIntent === 'Start' ? 'bg-white text-emerald-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900']"
-            class="px-3 py-1 rounded-lg transition"
+            class="px-3 py-1 rounded-lg transition cursor-pointer"
           >
-            ⚡ Start Service
+            ⚡ Start
           </button>
         </div>
 
@@ -65,8 +65,8 @@
             :class="[missingList.length === 0 ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-amber-100 text-amber-800 border-amber-200']"
             class="px-2.5 py-0.5 rounded-full border flex items-center space-x-1"
           >
-            <span v-if="missingList.length === 0">✓ All Mandatory Fields Verified</span>
-            <span v-else>⚠️ {{ missingList.length }} Required Field{{ missingList.length > 1 ? 's' : '' }} Missing</span>
+            <span v-if="missingList.length === 0">✓ Verified & Ready to Schedule</span>
+            <span v-else>⚠️ {{ missingList.length }} Field{{ missingList.length > 1 ? 's' : '' }} Missing</span>
           </span>
         </div>
       </div>
@@ -81,244 +81,147 @@
       </div>
     </div>
 
-    <!-- Body Form: Editable Fields -->
-    <div class="flex-1 overflow-y-auto p-5 space-y-5">
-      <!-- SECTION 1: ACCOUNT & IDENTITY VERIFICATION -->
-      <div class="bg-slate-50/70 rounded-2xl p-4 border border-slate-200/80 space-y-3.5">
-        <div class="flex items-center justify-between pb-1 border-b border-slate-200/60">
-          <div class="flex items-center space-x-2">
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-700">1. Account & Identity Verification</span>
-            <span class="text-[10px] text-slate-400 font-medium">Mandatory for customer authorization</span>
-          </div>
+    <!-- Body Scrollable Content -->
+    <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+      
+      <!-- PROMINENT ADDRESS & ROUTE SUMMARY CARD (VISIBLE AT THE VERY TOP!) -->
+      <div class="bg-gradient-to-r from-sky-50 via-slate-50 to-emerald-50 rounded-2xl p-4 border border-sky-100 shadow-2xs">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Service Route Overview</span>
+          <span v-if="calculatedOverlap > 0" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 animate-pulse">
+            {{ calculatedOverlap }} Days Dual-Service Overlap
+          </span>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <!-- Account Number (Mandatory for Stop & Move) -->
-          <div class="sm:col-span-2">
-            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Account Number</span>
-              <span v-if="formData.actionIntent !== 'Start'" class="text-[10px] text-rose-600 font-bold uppercase tracking-wider bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
-                Required for {{ formData.actionIntent }}
+          <!-- Origin / Current Address Display Card -->
+          <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs">
+            <div class="flex items-center justify-between text-[11px] mb-1">
+              <span class="font-bold uppercase tracking-wide text-rose-600 flex items-center">
+                <span class="w-2 h-2 rounded-full bg-rose-500 mr-1.5"></span>
+                {{ formData.actionIntent === 'Start' ? 'Service Address' : 'From (Current)' }}
               </span>
-              <span v-else class="text-[10px] text-slate-400 font-normal">Optional (New Account)</span>
-            </label>
-            <div class="relative">
-              <input
-                v-model="formData.accountNumber"
-                @input="onFieldChange"
-                type="text"
-                placeholder="e.g. ACT-849201"
-                class="w-full px-3 py-2 text-xs rounded-xl border font-mono transition focus:outline-none focus:ring-2 focus:ring-sky-500"
-                :class="[!formData.accountNumber && formData.actionIntent !== 'Start' ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300 bg-white']"
-              />
+              <span class="text-[10px] font-medium text-slate-400" v-if="formData.disconnectDate">
+                Stop: {{ formData.disconnectDate }}
+              </span>
+            </div>
+            <div class="text-xs font-bold text-slate-800 truncate" :title="formData.currentAddress || 'Not specified yet'">
+              {{ formData.currentAddress || '— Awaiting address from chat —' }}
             </div>
           </div>
 
-          <!-- First Name -->
-          <div>
-            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>First Name</span>
-              <span class="text-[10px] text-rose-600 font-bold">Required</span>
-            </label>
-            <input
-              v-model="formData.firstName"
-              @input="onFieldChange"
-              type="text"
-              placeholder="e.g. John"
-              class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
-              :class="[!formData.firstName ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300 bg-white']"
-            />
-          </div>
-
-          <!-- Last Name -->
-          <div>
-            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Last Name</span>
-              <span class="text-[10px] text-rose-600 font-bold">Required</span>
-            </label>
-            <input
-              v-model="formData.lastName"
-              @input="onFieldChange"
-              type="text"
-              placeholder="e.g. Doe"
-              class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
-              :class="[!formData.lastName ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300 bg-white']"
-            />
-          </div>
-
-          <!-- SSN -->
-          <div>
-            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>SSN (Social Security #)</span>
-              <span class="text-[10px] text-rose-600 font-bold">Required</span>
-            </label>
-            <div class="relative">
-              <input
-                v-model="formData.ssn"
-                @input="onFieldChange"
-                :type="showSsn ? 'text' : 'password'"
-                placeholder="XXX-XX-XXXX"
-                class="w-full px-3 py-2 text-xs rounded-xl border font-mono transition focus:outline-none focus:ring-2 focus:ring-sky-500 pr-14"
-                :class="[!formData.ssn ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300 bg-white']"
-              />
-              <button 
-                type="button" 
-                @click="showSsn = !showSsn"
-                class="absolute right-2 top-2 text-[10px] font-semibold text-slate-500 hover:text-slate-800 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200"
-              >
-                {{ showSsn ? 'Hide' : 'Show' }}
-              </button>
+          <!-- Destination / New Address Display Card -->
+          <div v-if="formData.actionIntent === 'Move'" class="bg-white rounded-xl p-3 border border-emerald-200 shadow-2xs">
+            <div class="flex items-center justify-between text-[11px] mb-1">
+              <span class="font-bold uppercase tracking-wide text-emerald-700 flex items-center">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>
+                To (New Residence)
+              </span>
+              <span class="text-[10px] font-medium text-slate-400" v-if="formData.connectDate">
+                Start: {{ formData.connectDate }}
+              </span>
+            </div>
+            <div class="text-xs font-bold text-slate-800 truncate" :title="formData.newAddress || 'Not specified yet'">
+              {{ formData.newAddress || '— Awaiting address from chat —' }}
             </div>
           </div>
+        </div>
 
-          <!-- DOB -->
-          <div>
-            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Date of Birth (DOB)</span>
-              <span class="text-[10px] text-rose-600 font-bold">Required</span>
-            </label>
-            <input
-              v-model="formData.dob"
-              @input="onFieldChange"
-              type="date"
-              class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
-              :class="[!formData.dob ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300 bg-white']"
-            />
-          </div>
+        <!-- Dual-Service Notice -->
+        <div v-if="formData.actionIntent === 'Move' && calculatedOverlap > 0" class="mt-2.5 p-2 bg-amber-50/80 rounded-lg border border-amber-200/60 text-[11px] text-amber-800 flex items-center space-x-1.5">
+          <span>💡</span>
+          <span><strong>Dual Service Active (Oct {{ getDay(formData.connectDate) }} – Oct {{ getDay(formData.disconnectDate) }}):</strong> Continuous utility service at both homes for painting & transition.</span>
         </div>
       </div>
 
-      <!-- SECTION 2: CONTACT DETAILS -->
-      <div class="bg-slate-50/70 rounded-2xl p-4 border border-slate-200/80 space-y-3.5">
+      <!-- SECTION 1: SERVICE LOCATIONS & DATES (EDITABLE INPUTS) -->
+      <div class="bg-slate-50/70 rounded-2xl p-4 border border-slate-200/80 space-y-3">
         <div class="flex items-center justify-between pb-1 border-b border-slate-200/60">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-700">2. Contact Information</span>
-          <span class="text-[10px] text-slate-400 font-medium">For move confirmation & status alerts</span>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <!-- Phone Number -->
-          <div>
-            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Phone Number</span>
-              <span class="text-[10px] text-rose-600 font-bold">Required</span>
-            </label>
-            <input
-              v-model="formData.phoneNumber"
-              @input="onFieldChange"
-              type="tel"
-              placeholder="(555) 000-0000"
-              class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
-              :class="[!formData.phoneNumber ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300 bg-white']"
-            />
-          </div>
-
-          <!-- Email Address -->
-          <div>
-            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Email Address</span>
-              <span class="text-[10px] text-rose-600 font-bold">Required</span>
-            </label>
-            <input
-              v-model="formData.email"
-              @input="onFieldChange"
-              type="email"
-              placeholder="customer@example.com"
-              class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
-              :class="[!formData.email ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300 bg-white']"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- SECTION 3: SERVICE LOCATIONS & DATES -->
-      <div class="bg-slate-50/70 rounded-2xl p-4 border border-slate-200/80 space-y-3.5">
-        <div class="flex items-center justify-between pb-1 border-b border-slate-200/60">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-700">3. Service Locations & Schedule</span>
-          <span class="text-[10px] text-slate-400 font-medium">Field technician dispatch details</span>
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-700">1. Service Locations & Move Schedule</span>
+          <span class="text-[10px] text-slate-400 font-medium">Click any field to edit</span>
         </div>
 
         <div class="space-y-3">
-          <!-- Current / Disconnect Location -->
-          <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+          <!-- Current Address Input -->
+          <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-800 flex items-center">
+              <label class="text-xs font-bold text-slate-800 flex items-center">
                 <span class="w-2 h-2 rounded-full bg-rose-500 mr-1.5"></span>
                 {{ formData.actionIntent === 'Start' ? 'Service Address (Connect)' : 'Current Address (Disconnect)' }}
-              </span>
-              <span class="text-[10px] text-rose-600 font-bold">Required</span>
+              </label>
+              <span class="text-[10px] text-rose-600 font-bold" v-if="!formData.currentAddress">Required</span>
+              <span class="text-[10px] text-emerald-600 font-bold" v-else>✓ Recorded</span>
             </div>
-            
             <input
               v-model="formData.currentAddress"
               @input="onFieldChange"
               type="text"
               placeholder="e.g. 104 Main St, Springfield"
               class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
-              :class="[!formData.currentAddress ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300 bg-white']"
+              :class="[!formData.currentAddress ? 'border-amber-300 bg-amber-50/20' : 'border-slate-300 bg-white font-medium']"
             />
 
-            <!-- Disconnect Date (Required for Move & Stop) -->
+            <!-- Disconnect Date (Stop Date) -->
             <div v-if="formData.actionIntent !== 'Start'" class="pt-1 flex items-center justify-between">
-              <label class="text-xs font-medium text-slate-600">Stop Date (When to disconnect):</label>
+              <label class="text-xs font-medium text-slate-600">Stop Date (Disconnect):</label>
               <input
                 v-model="formData.disconnectDate"
                 @input="onFieldChange"
                 type="date"
                 class="px-2.5 py-1 text-xs rounded-lg border border-slate-300 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
-                :class="[!formData.disconnectDate ? 'border-amber-300 bg-amber-50/30' : '']"
+                :class="[!formData.disconnectDate ? 'border-amber-300 bg-amber-50/20' : '']"
               />
             </div>
           </div>
 
-          <!-- New / Connect Location (Only for Move) -->
-          <div v-if="formData.actionIntent === 'Move'" class="p-3 bg-white rounded-xl border border-emerald-200 space-y-2 ring-1 ring-emerald-500/10">
+          <!-- New Address Input (for Move) -->
+          <div v-if="formData.actionIntent === 'Move'" class="p-3 bg-white rounded-xl border border-emerald-200 space-y-1.5 ring-1 ring-emerald-500/10">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-800 flex items-center">
+              <label class="text-xs font-bold text-slate-800 flex items-center">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>
                 New Address (Connect Service)
-              </span>
-              <span class="text-[10px] text-emerald-700 font-bold">Required for Move</span>
+              </label>
+              <span class="text-[10px] text-emerald-700 font-bold" v-if="!formData.newAddress">Required for Move</span>
+              <span class="text-[10px] text-emerald-600 font-bold" v-else>✓ Recorded</span>
             </div>
-
             <input
               v-model="formData.newAddress"
               @input="onFieldChange"
               type="text"
               placeholder="e.g. 450 Oak Drive, Columbus"
               class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
-              :class="[!formData.newAddress ? 'border-amber-300 bg-amber-50/30' : 'border-slate-300 bg-white']"
+              :class="[!formData.newAddress ? 'border-amber-300 bg-amber-50/20' : 'border-slate-300 bg-white font-medium']"
             />
 
-            <!-- Connect Date -->
+            <!-- Connect Date (Start Date) -->
             <div class="pt-1 flex items-center justify-between">
-              <label class="text-xs font-medium text-slate-600">Start Date (When to connect):</label>
+              <label class="text-xs font-medium text-slate-600">Start Date (Connect):</label>
               <input
                 v-model="formData.connectDate"
                 @input="onFieldChange"
                 type="date"
                 class="px-2.5 py-1 text-xs rounded-lg border border-slate-300 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
-                :class="[!formData.connectDate ? 'border-amber-300 bg-amber-50/30' : '']"
+                :class="[!formData.connectDate ? 'border-amber-300 bg-amber-50/20' : '']"
               />
             </div>
           </div>
 
-          <!-- Connect Date for Start Service -->
-          <div v-if="formData.actionIntent === 'Start'" class="p-3 bg-white rounded-xl border border-emerald-200 flex items-center justify-between">
-            <label class="text-xs font-bold text-slate-700">Start Date (When to start):</label>
+          <!-- Start Date (for Start Service only) -->
+          <div v-if="formData.actionIntent === 'Start'" class="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+            <label class="text-xs font-bold text-slate-700">Start Date (When to connect):</label>
             <input
               v-model="formData.connectDate"
               @input="onFieldChange"
               type="date"
               class="px-2.5 py-1 text-xs rounded-lg border border-slate-300 font-medium focus:outline-none focus:ring-2 focus:ring-sky-500"
-              :class="[!formData.connectDate ? 'border-amber-300 bg-amber-50/30' : '']"
             />
           </div>
 
-          <!-- Final Bill Forwarding Address -->
-          <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5">
+          <!-- Forwarding Address -->
+          <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-1">
             <div class="flex items-center justify-between">
               <span class="text-xs font-semibold text-slate-700">Forwarding Address (Final Bill)</span>
-              <span class="text-[10px] text-slate-400 font-normal">Optional</span>
+              <span class="text-[10px] text-slate-400">Optional</span>
             </div>
             <input
               v-model="formData.forwardingAddress"
@@ -331,57 +234,167 @@
         </div>
       </div>
 
-      <!-- DUAL-SERVICE OVERLAP BANNER -->
-      <div v-if="formData.actionIntent === 'Move' && calculatedOverlap > 0" class="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/90 rounded-2xl p-4 shadow-2xs">
-        <div class="flex items-start space-x-3">
-          <div class="w-8 h-8 rounded-xl bg-amber-500 text-white flex-shrink-0 flex items-center justify-center shadow-sm">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-          </div>
-          <div>
-            <div class="flex items-center space-x-2">
-              <h4 class="text-xs font-bold text-amber-900">
-                Continuous Dual-Service Overlap: {{ calculatedOverlap }} Days
-              </h4>
-              <span class="text-[10px] uppercase font-bold px-2 py-0.2 bg-amber-200/80 text-amber-900 rounded-full">
-                Auto-Calculated
+      <!-- SECTION 2: CUSTOMER IDENTITY & ACCOUNT VERIFICATION -->
+      <div class="bg-slate-50/70 rounded-2xl p-4 border border-slate-200/80 space-y-3">
+        <div class="flex items-center justify-between pb-1 border-b border-slate-200/60">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-700">2. Customer Account & Identity</span>
+          <span class="text-[10px] text-slate-400 font-medium">Utility identity verification</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Account Number -->
+          <div class="sm:col-span-2">
+            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
+              <span>Account Number</span>
+              <span v-if="formData.actionIntent !== 'Start'" class="text-[10px] text-rose-600 font-bold">
+                {{ formData.accountNumber ? '✓ Verified' : 'Required for ' + formData.actionIntent }}
               </span>
+              <span v-else class="text-[10px] text-slate-400 font-normal">Optional (New Customer)</span>
+            </label>
+            <input
+              v-model="formData.accountNumber"
+              @input="onFieldChange"
+              type="text"
+              placeholder="e.g. ACT-8492019"
+              class="w-full px-3 py-2 text-xs rounded-xl border font-mono transition focus:outline-none focus:ring-2 focus:ring-sky-500"
+              :class="[!formData.accountNumber && formData.actionIntent !== 'Start' ? 'border-amber-300 bg-amber-50/20' : 'border-slate-300 bg-white']"
+            />
+          </div>
+
+          <!-- First Name -->
+          <div>
+            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
+              <span>First Name</span>
+              <span class="text-[10px]" :class="[formData.firstName ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold']">
+                {{ formData.firstName ? '✓' : 'Required' }}
+              </span>
+            </label>
+            <input
+              v-model="formData.firstName"
+              @input="onFieldChange"
+              type="text"
+              placeholder="e.g. Sarah"
+              class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
+              :class="[!formData.firstName ? 'border-amber-300 bg-amber-50/20' : 'border-slate-300 bg-white']"
+            />
+          </div>
+
+          <!-- Last Name -->
+          <div>
+            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
+              <span>Last Name</span>
+              <span class="text-[10px]" :class="[formData.lastName ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold']">
+                {{ formData.lastName ? '✓' : 'Required' }}
+              </span>
+            </label>
+            <input
+              v-model="formData.lastName"
+              @input="onFieldChange"
+              type="text"
+              placeholder="e.g. Connor"
+              class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
+              :class="[!formData.lastName ? 'border-amber-300 bg-amber-50/20' : 'border-slate-300 bg-white']"
+            />
+          </div>
+
+          <!-- SSN -->
+          <div>
+            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
+              <span>SSN</span>
+              <span class="text-[10px]" :class="[formData.ssn ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold']">
+                {{ formData.ssn ? '✓' : 'Required' }}
+              </span>
+            </label>
+            <div class="relative">
+              <input
+                v-model="formData.ssn"
+                @input="onFieldChange"
+                :type="showSsn ? 'text' : 'password'"
+                placeholder="XXX-XX-XXXX"
+                class="w-full px-3 py-2 text-xs rounded-xl border font-mono transition focus:outline-none focus:ring-2 focus:ring-sky-500 pr-14"
+                :class="[!formData.ssn ? 'border-amber-300 bg-amber-50/20' : 'border-slate-300 bg-white']"
+              />
+              <button 
+                type="button" 
+                @click="showSsn = !showSsn"
+                class="absolute right-2 top-2 text-[10px] font-semibold text-slate-500 hover:text-slate-800 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 cursor-pointer"
+              >
+                {{ showSsn ? 'Hide' : 'Show' }}
+              </button>
             </div>
-            <p class="text-[11px] text-amber-800 mt-1 leading-relaxed">
-              Both properties will have simultaneous utility service from <strong>{{ formData.connectDate }}</strong> to <strong>{{ formData.disconnectDate }}</strong>. You can paint, clean, and heat without moving day freeze.
-            </p>
+          </div>
+
+          <!-- DOB -->
+          <div>
+            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
+              <span>Date of Birth (DOB)</span>
+              <span class="text-[10px]" :class="[formData.dob ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold']">
+                {{ formData.dob ? '✓' : 'Required' }}
+              </span>
+            </label>
+            <input
+              v-model="formData.dob"
+              @input="onFieldChange"
+              type="date"
+              class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
+              :class="[!formData.dob ? 'border-amber-300 bg-amber-50/20' : 'border-slate-300 bg-white']"
+            />
+          </div>
+
+          <!-- Phone Number -->
+          <div>
+            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
+              <span>Phone Number</span>
+              <span class="text-[10px]" :class="[formData.phoneNumber ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold']">
+                {{ formData.phoneNumber ? '✓' : 'Required' }}
+              </span>
+            </label>
+            <input
+              v-model="formData.phoneNumber"
+              @input="onFieldChange"
+              type="tel"
+              placeholder="(555) 000-0000"
+              class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
+              :class="[!formData.phoneNumber ? 'border-amber-300 bg-amber-50/20' : 'border-slate-300 bg-white']"
+            />
+          </div>
+
+          <!-- Email Address -->
+          <div>
+            <label class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
+              <span>Email Address</span>
+              <span class="text-[10px]" :class="[formData.email ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold']">
+                {{ formData.email ? '✓' : 'Required' }}
+              </span>
+            </label>
+            <input
+              v-model="formData.email"
+              @input="onFieldChange"
+              type="email"
+              placeholder="customer@example.com"
+              class="w-full px-3 py-2 text-xs rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-sky-500"
+              :class="[!formData.email ? 'border-amber-300 bg-amber-50/20' : 'border-slate-300 bg-white']"
+            />
           </div>
         </div>
       </div>
 
-      <!-- MISSING FIELDS WARNING CARD (Shown when incomplete) -->
-      <div v-if="missingList.length > 0" class="p-3.5 bg-amber-50/80 rounded-xl border border-amber-200 space-y-1.5">
-        <div class="flex items-center space-x-1.5 text-xs font-bold text-amber-900">
-          <svg class="w-4 h-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-            <line x1="12" y1="9" x2="12" y2="13"/>
-            <line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-          <span>Required to Complete {{ formData.actionIntent }} Order:</span>
+      <!-- MISSING FIELDS HELPER (ONLY MENTIONS WHAT IS ACTUALLY MISSING) -->
+      <div v-if="missingList.length > 0" class="p-3 bg-amber-50/80 rounded-xl border border-amber-200 text-xs">
+        <span class="font-bold text-amber-900 block mb-1">Missing {{ missingList.length }} details to schedule:</span>
+        <div class="flex flex-wrap gap-1.5">
+          <span v-for="item in missingList" :key="item" class="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 text-[11px] font-semibold">
+            • {{ item }}
+          </span>
         </div>
-        <ul class="text-[11px] text-amber-800 list-disc list-inside space-y-0.5 pl-1">
-          <li v-for="item in missingList" :key="item">
-            <strong>{{ item }}</strong> is required.
-          </li>
-        </ul>
-        <p class="text-[10px] text-amber-700 italic pt-1">
-          Tip: You can type these into the chat on the left, or fill them directly into the inputs above, or click "Quick-Fill Identity".
-        </p>
       </div>
 
       <!-- CONFIRM & SCHEDULE BUTTON -->
-      <div class="pt-2">
+      <div class="pt-1">
         <button
           @click="submitTransfer"
           :disabled="isScheduling || missingList.length > 0"
-          class="w-full py-4 px-6 rounded-xl font-bold text-sm text-white transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
+          class="w-full py-3.5 px-6 rounded-xl font-bold text-sm text-white transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg"
           :class="[
             missingList.length === 0 && !isScheduling
               ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-emerald-600/25 cursor-pointer transform hover:-translate-y-0.5' 
@@ -397,12 +410,9 @@
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
           </svg>
           <span>
-            {{ isScheduling ? 'Scheduling Move with Field Ops...' : (missingList.length === 0 ? 'Confirm & Schedule ' + formData.actionIntent : 'Please Complete Mandatory Fields Above') }}
+            {{ isScheduling ? 'Scheduling Move with Field Ops...' : (missingList.length === 0 ? 'Confirm & Schedule ' + formData.actionIntent : 'Complete Missing Fields to Schedule') }}
           </span>
         </button>
-        <p class="text-center text-[11px] text-slate-400 mt-2">
-          Encrypted utility dispatch • Instant confirmation ID & meter dispatch receipt.
-        </p>
       </div>
     </div>
   </div>
@@ -426,7 +436,6 @@ const emit = defineEmits(['confirm', 'update:transferData'])
 
 const showSsn = ref(false)
 
-// Local editable reactive form
 const formData = reactive({
   actionIntent: 'Move',
   accountNumber: '',
@@ -449,24 +458,23 @@ const formData = reactive({
 watch(() => props.transferData, (newData) => {
   if (newData) {
     if (newData.actionIntent) formData.actionIntent = newData.actionIntent
-    if (newData.accountNumber !== undefined) formData.accountNumber = newData.accountNumber || ''
-    if (newData.firstName !== undefined) formData.firstName = newData.firstName || ''
-    if (newData.lastName !== undefined) formData.lastName = newData.lastName || ''
-    if (newData.ssn !== undefined) formData.ssn = newData.ssn || ''
-    if (newData.dob !== undefined) formData.dob = normalizeDate(newData.dob)
-    if (newData.phoneNumber !== undefined) formData.phoneNumber = newData.phoneNumber || ''
-    if (newData.email !== undefined) formData.email = newData.email || ''
-    if (newData.currentAddress !== undefined) formData.currentAddress = newData.currentAddress || ''
-    if (newData.newAddress !== undefined) formData.newAddress = newData.newAddress || ''
-    if (newData.disconnectDate !== undefined) formData.disconnectDate = normalizeDate(newData.disconnectDate)
-    if (newData.connectDate !== undefined) formData.connectDate = normalizeDate(newData.connectDate)
-    if (newData.forwardingAddress !== undefined) formData.forwardingAddress = newData.forwardingAddress || ''
+    if (newData.accountNumber !== undefined && newData.accountNumber !== '') formData.accountNumber = newData.accountNumber
+    if (newData.firstName !== undefined && newData.firstName !== '') formData.firstName = newData.firstName
+    if (newData.lastName !== undefined && newData.lastName !== '') formData.lastName = newData.lastName
+    if (newData.ssn !== undefined && newData.ssn !== '') formData.ssn = newData.ssn
+    if (newData.dob !== undefined && newData.dob !== '') formData.dob = normalizeDate(newData.dob)
+    if (newData.phoneNumber !== undefined && newData.phoneNumber !== '') formData.phoneNumber = newData.phoneNumber
+    if (newData.email !== undefined && newData.email !== '') formData.email = newData.email
+    if (newData.currentAddress !== undefined && newData.currentAddress !== '') formData.currentAddress = newData.currentAddress
+    if (newData.newAddress !== undefined && newData.newAddress !== '') formData.newAddress = newData.newAddress
+    if (newData.disconnectDate !== undefined && newData.disconnectDate !== '') formData.disconnectDate = normalizeDate(newData.disconnectDate)
+    if (newData.connectDate !== undefined && newData.connectDate !== '') formData.connectDate = normalizeDate(newData.connectDate)
+    if (newData.forwardingAddress !== undefined && newData.forwardingAddress !== '') formData.forwardingAddress = newData.forwardingAddress
   }
 }, { immediate: true, deep: true })
 
 function normalizeDate(d) {
   if (!d) return ''
-  // If formatted like 2026-10-28, return as is
   if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d
   try {
     const parsed = new Date(d)
@@ -477,13 +485,20 @@ function normalizeDate(d) {
   return d
 }
 
-// Intent switcher
+function getDay(dateStr) {
+  if (!dateStr) return ''
+  try {
+    const d = new Date(dateStr)
+    return d.getDate()
+  } catch (e) {}
+  return dateStr
+}
+
 function setIntent(intent) {
   formData.actionIntent = intent
   onFieldChange()
 }
 
-// Calculate overlap dynamically whenever dates change
 const calculatedOverlap = computed(() => {
   if (formData.actionIntent !== 'Move') return 0
   if (!formData.connectDate || !formData.disconnectDate) return 0
@@ -496,13 +511,6 @@ const calculatedOverlap = computed(() => {
   return 0
 })
 
-// Compute dynamic list of missing fields based on user's exact specification:
-// 1. First name, Last name, SSN, DOB, Phone number, Email address: ALL intents
-// 2. Account number: Move & Stop
-// 3. Current address: ALL intents
-// 4. New address: Move only
-// 5. DisconnectDate (Stop Date): Move & Stop
-// 6. ConnectDate (Start Date): Move & Start
 const missingList = computed(() => {
   const missing = []
 
@@ -510,16 +518,16 @@ const missingList = computed(() => {
   if (!formData.firstName?.trim()) missing.push('First Name')
   if (!formData.lastName?.trim()) missing.push('Last Name')
   if (!formData.ssn?.trim()) missing.push('SSN')
-  if (!formData.dob?.trim()) missing.push('Date of Birth (DOB)')
+  if (!formData.dob?.trim()) missing.push('Date of Birth')
   if (!formData.phoneNumber?.trim()) missing.push('Phone Number')
   if (!formData.email?.trim()) missing.push('Email Address')
 
   // Intent-specific rules
   if (formData.actionIntent === 'Move') {
     if (!formData.accountNumber?.trim()) missing.push('Account Number')
-    if (!formData.currentAddress?.trim()) missing.push('Current Address (Move-Out)')
+    if (!formData.currentAddress?.trim()) missing.push('Current Address')
     if (!formData.disconnectDate?.trim()) missing.push('Stop Date')
-    if (!formData.newAddress?.trim()) missing.push('New Address (Move-In)')
+    if (!formData.newAddress?.trim()) missing.push('New Address')
     if (!formData.connectDate?.trim()) missing.push('Start Date')
   } else if (formData.actionIntent === 'Stop') {
     if (!formData.accountNumber?.trim()) missing.push('Account Number')
@@ -533,7 +541,6 @@ const missingList = computed(() => {
   return missing
 })
 
-// Total required fields by intent
 const totalRequiredCount = computed(() => {
   if (formData.actionIntent === 'Move') return 11
   if (formData.actionIntent === 'Stop') return 9
