@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "cKcumwKmUlF9dyFaf/TSKyjVCLLQ8TTc4JETh5eOa1U=",
+  "Source": "SmartMoveAssistant.Api",
+  "BasePath": "_content/SmartMoveAssistant.Api",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
