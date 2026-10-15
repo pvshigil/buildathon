@@ -457,7 +457,16 @@ const formData = reactive({
 // Sync incoming props to local formData
 watch(() => props.transferData, (newData) => {
   if (newData) {
-    if (newData.actionIntent) formData.actionIntent = newData.actionIntent
+    if (newData.actionIntent) {
+      formData.actionIntent = newData.actionIntent
+      if (newData.actionIntent === 'Start') {
+        formData.newAddress = ''
+        formData.disconnectDate = ''
+      } else if (newData.actionIntent === 'Stop') {
+        formData.newAddress = ''
+        formData.connectDate = ''
+      }
+    }
     if (newData.accountNumber !== undefined && newData.accountNumber !== '') formData.accountNumber = newData.accountNumber
     if (newData.firstName !== undefined && newData.firstName !== '') formData.firstName = newData.firstName
     if (newData.lastName !== undefined && newData.lastName !== '') formData.lastName = newData.lastName

@@ -174,6 +174,7 @@ Rules:
             var dto = JsonSerializer.Deserialize<TransferResponseDto>(content, options);
             if (dto != null)
             {
+                NormalizeIntentAddresses(dto);
                 return dto;
             }
         }
@@ -215,6 +216,7 @@ Rules:
                 else dto.ActionIntent = ActionIntent.Move;
             }
 
+            NormalizeIntentAddresses(dto);
             return dto;
         }
         catch (Exception ex)
@@ -225,50 +227,85 @@ Rules:
         return null;
     }
 
+    private static void NormalizeIntentAddresses(TransferResponseDto dto)
+    {
+        if (dto.ActionIntent == ActionIntent.Start || dto.ActionIntent == ActionIntent.Stop)
+        {
+            if (string.IsNullOrWhiteSpace(dto.CurrentAddress) && !string.IsNullOrWhiteSpace(dto.NewAddress))
+            {
+                dto.CurrentAddress = dto.NewAddress;
+                dto.NewAddress = "";
+            }
+        }
+    }
+
     private static void SupplementHeuristics(TransferResponseDto dto, string message)
     {
-        // If current address wasn't extracted but message has an address pattern
+        // 1. If current address wasn't extracted but message has an address pattern
         if (string.IsNullOrWhiteSpace(dto.CurrentAddress))
         {
-            var match = Regex.Match(message, @"(?:moving out of|leaving|current address(?:\s*is)?|address is|from)\s+([0-9]+\s+[A-Za-z0-9\s.,]+?)(?=\s+(?:on|to|and|by|with|\.|\,|$))", RegexOptions.IgnoreCase);
+            var match = Regex.Match(message, @"(?:(?:start|stop|connect|disconnect|cancel)?\s*(?:a\s+|the\s+)?service\s+(?:at|for|in)|(?:moving out of|leaving|current address(?:\s*is)?|address is|from|at))\s+([A-Za-z0-9\s.,#-]+?)(?=\s+(?:on|effective|date|to|and|by|with|\.|\,|$))", RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                dto.CurrentAddress = match.Groups[1].Value.Trim().TrimEnd('.', ',');
+                var candidate = match.Groups[1].Value.Trim().TrimEnd('.', ',');
+                if (candidate.Length > 2 && !candidate.Equals("the", StringComparison.OrdinalIgnoreCase) && !candidate.Equals("a", StringComparison.OrdinalIgnoreCase))
+                {
+                    dto.CurrentAddress = candidate;
+                }
             }
-            else if (Regex.IsMatch(message.Trim(), @"^[0-9]+\s+[A-Za-z0-9\s.,]+$"))
+            else
             {
-                dto.CurrentAddress = message.Trim();
+                var numMatch = Regex.Match(message, @"\b([0-9]+\s+[A-Za-z0-9\s.,]+?)(?=\s+(?:on|to|and|by|with|\.|\,|$))", RegexOptions.IgnoreCase);
+                if (numMatch.Success)
+                {
+                    dto.CurrentAddress = numMatch.Groups[1].Value.Trim().TrimEnd('.', ',');
+                }
             }
         }
 
-        // If new address wasn't extracted
-        if (string.IsNullOrWhiteSpace(dto.NewAddress))
+        // 2. If new address wasn't extracted and intent is Move
+        if (dto.ActionIntent == ActionIntent.Move && string.IsNullOrWhiteSpace(dto.NewAddress))
         {
-            var match = Regex.Match(message, @"(?:bought a house at|moving into|new address(?:\s*is)?|to)\s+([0-9]+\s+[A-Za-z0-9\s.,]+?)(?=\s+(?:on|and|by|with|send|\.|\,|$))", RegexOptions.IgnoreCase);
+            var match = Regex.Match(message, @"(?:bought a house at|moving into|new address(?:\s*is)?|to)\s+([A-Za-z0-9\s.,#-]+?)(?=\s+(?:on|and|by|with|send|\.|\,|$))", RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                dto.NewAddress = match.Groups[1].Value.Trim().TrimEnd('.', ',');
+                var candidate = match.Groups[1].Value.Trim().TrimEnd('.', ',');
+                if (candidate.Length > 2)
+                {
+                    dto.NewAddress = candidate;
+                }
             }
         }
+
+        NormalizeIntentAddresses(dto);
     }
 
     private static TransferResponseDto MergeDto(TransferResponseDto? existing, TransferResponseDto newlyExtracted, string message)
     {
         if (existing == null) return newlyExtracted;
 
-        // Preserve established ActionIntent unless explicitly commanded to switch in the message
+        // Detect intent from user's message
         var lowerMsg = message.ToLowerInvariant();
-        if ((lowerMsg.Contains("start") && lowerMsg.Contains("stop")) || lowerMsg.Contains("move") || lowerMsg.Contains("moving") || lowerMsg.Contains("bought a house") || lowerMsg.Contains("moving into") || lowerMsg.Contains("moving out"))
+        bool hasMove = Regex.IsMatch(lowerMsg, @"\b(move|moving|transfer|relocat|buying|bought)\b") || 
+                       (Regex.IsMatch(lowerMsg, @"\bstart\b") && Regex.IsMatch(lowerMsg, @"\bstop\b"));
+        bool hasStop = Regex.IsMatch(lowerMsg, @"\b(stop|cancel|disconnect|shut\s*off|turn\s*off|terminate|end\s+service)\b");
+        bool hasStart = Regex.IsMatch(lowerMsg, @"\b(start|begin|connect|turn\s*on|new\s+service|setup|set\s*up)\b");
+
+        if (hasMove)
         {
             existing.ActionIntent = ActionIntent.Move;
         }
-        else if (lowerMsg.Contains("stop service") || lowerMsg.Contains("cancel service") || lowerMsg.Contains("disconnect service") || lowerMsg.Contains("terminate service"))
+        else if (hasStop)
         {
             existing.ActionIntent = ActionIntent.Stop;
         }
-        else if (lowerMsg.Contains("start service") || lowerMsg.Contains("new service") || lowerMsg.Contains("connect service"))
+        else if (hasStart)
         {
             existing.ActionIntent = ActionIntent.Start;
+        }
+        else if (newlyExtracted.ActionIntent != ActionIntent.Move)
+        {
+            existing.ActionIntent = newlyExtracted.ActionIntent;
         }
 
         // Overlay newly extracted values if non-empty
@@ -280,10 +317,33 @@ Rules:
         if (!string.IsNullOrWhiteSpace(newlyExtracted.PhoneNumber)) existing.PhoneNumber = newlyExtracted.PhoneNumber;
         if (!string.IsNullOrWhiteSpace(newlyExtracted.Email)) existing.Email = newlyExtracted.Email;
 
-        if (!string.IsNullOrWhiteSpace(newlyExtracted.CurrentAddress)) existing.CurrentAddress = newlyExtracted.CurrentAddress;
-        if (!string.IsNullOrWhiteSpace(newlyExtracted.NewAddress)) existing.NewAddress = newlyExtracted.NewAddress;
-        if (!string.IsNullOrWhiteSpace(newlyExtracted.ForwardingAddress)) existing.ForwardingAddress = newlyExtracted.ForwardingAddress;
+        if (!string.IsNullOrWhiteSpace(newlyExtracted.CurrentAddress))
+        {
+            existing.CurrentAddress = newlyExtracted.CurrentAddress;
+        }
+        else if ((existing.ActionIntent == ActionIntent.Start || existing.ActionIntent == ActionIntent.Stop) && !string.IsNullOrWhiteSpace(newlyExtracted.NewAddress))
+        {
+            existing.CurrentAddress = newlyExtracted.NewAddress;
+        }
 
+        if (existing.ActionIntent == ActionIntent.Move)
+        {
+            if (!string.IsNullOrWhiteSpace(newlyExtracted.NewAddress)) existing.NewAddress = newlyExtracted.NewAddress;
+        }
+        else
+        {
+            existing.NewAddress = "";
+            if (existing.ActionIntent == ActionIntent.Start)
+            {
+                existing.DisconnectDate = "";
+            }
+            else if (existing.ActionIntent == ActionIntent.Stop)
+            {
+                existing.ConnectDate = "";
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(newlyExtracted.ForwardingAddress)) existing.ForwardingAddress = newlyExtracted.ForwardingAddress;
         if (!string.IsNullOrWhiteSpace(newlyExtracted.DisconnectDate)) existing.DisconnectDate = newlyExtracted.DisconnectDate;
         if (!string.IsNullOrWhiteSpace(newlyExtracted.ConnectDate)) existing.ConnectDate = newlyExtracted.ConnectDate;
 
@@ -366,17 +426,27 @@ Rules:
         {
             // Build a smart, conversational response that acknowledges what was captured
             var capturedParts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(dto.CurrentAddress) && !string.IsNullOrWhiteSpace(dto.NewAddress))
+            if (dto.ActionIntent == ActionIntent.Move)
             {
-                capturedParts.Add($"moving from {dto.CurrentAddress} to {dto.NewAddress}");
+                if (!string.IsNullOrWhiteSpace(dto.CurrentAddress) && !string.IsNullOrWhiteSpace(dto.NewAddress))
+                {
+                    capturedParts.Add($"moving from {dto.CurrentAddress} to {dto.NewAddress}");
+                }
+                else if (!string.IsNullOrWhiteSpace(dto.CurrentAddress))
+                {
+                    capturedParts.Add($"current address: {dto.CurrentAddress}");
+                }
+                else if (!string.IsNullOrWhiteSpace(dto.NewAddress))
+                {
+                    capturedParts.Add($"destination address: {dto.NewAddress}");
+                }
             }
-            else if (!string.IsNullOrWhiteSpace(dto.CurrentAddress))
+            else
             {
-                capturedParts.Add($"current address: {dto.CurrentAddress}");
-            }
-            else if (!string.IsNullOrWhiteSpace(dto.NewAddress))
-            {
-                capturedParts.Add($"destination address: {dto.NewAddress}");
+                if (!string.IsNullOrWhiteSpace(dto.CurrentAddress))
+                {
+                    capturedParts.Add($"service address: {dto.CurrentAddress}");
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(dto.DisconnectDate) || !string.IsNullOrWhiteSpace(dto.ConnectDate))
@@ -391,24 +461,9 @@ Rules:
 
             var intro = capturedParts.Count > 0 
                 ? $"I've recorded your {string.Join(", ", capturedParts)}. "
-                : $"I've started your {dto.ActionIntent} request. ";
+                : $"I've started your {dto.ActionIntent} service request. ";
 
-            // Separate missing items into Location/Dates vs Identity for clean conversational communication
-            var locationAndDates = new HashSet<string> { "Current Address", "New Address", "Service Address", "Stop Date", "Start Date" };
-            var missingMoveDetails = missing.Where(m => locationAndDates.Contains(m)).ToList();
-            var missingIdentity = missing.Where(m => !locationAndDates.Contains(m)).ToList();
-
-            var asks = new List<string>();
-            if (missingMoveDetails.Count > 0)
-            {
-                asks.Add($"move details ({string.Join(", ", missingMoveDetails)})");
-            }
-            if (missingIdentity.Count > 0)
-            {
-                asks.Add($"identity verification ({string.Join(", ", missingIdentity)})");
-            }
-
-            dto.AiExplanation = $"{intro}To finalize and schedule, we still need your {string.Join(" and ", asks)}. You can reply here in chat or enter them directly into the form on the right.";
+            dto.AiExplanation = $"{intro}To finalize and schedule, we still need: {string.Join(", ", missing)}. You can reply here in chat or enter them directly into the form on the right.";
         }
     }
 
@@ -421,11 +476,21 @@ Rules:
         };
 
         // Detect intent
-        if (Regex.IsMatch(message, @"\b(stop|cancel|terminate|turn off|disconnect)\b", RegexOptions.IgnoreCase))
+        var lowerMsg = message.ToLowerInvariant();
+        bool hasMove = Regex.IsMatch(lowerMsg, @"\b(move|moving|transfer|relocat|buying|bought)\b") || 
+                       (Regex.IsMatch(lowerMsg, @"\bstart\b") && Regex.IsMatch(lowerMsg, @"\bstop\b"));
+        bool hasStop = Regex.IsMatch(lowerMsg, @"\b(stop|cancel|disconnect|shut\s*off|turn\s*off|terminate|end\s+service)\b");
+        bool hasStart = Regex.IsMatch(lowerMsg, @"\b(start|begin|connect|turn\s*on|new\s+service|setup|set\s*up)\b");
+
+        if (hasMove)
+        {
+            dto.ActionIntent = ActionIntent.Move;
+        }
+        else if (hasStop)
         {
             dto.ActionIntent = ActionIntent.Stop;
         }
-        else if (Regex.IsMatch(message, @"\b(start|new service|turn on|connect only)\b", RegexOptions.IgnoreCase) && !message.Contains("moving", StringComparison.OrdinalIgnoreCase))
+        else if (hasStart)
         {
             dto.ActionIntent = ActionIntent.Start;
         }

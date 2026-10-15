@@ -7,6 +7,12 @@
 
 ## ⚡ Tech Stack
 
+cd backend\SmartMoveAssistant.Api
+dotnet run --no-build --launch-profile http
+
+cd frontend
+npm run dev
+
 * **Frontend:** Vue.js 3 (Composition API), Tailwind CSS (Utility & Eco theme), Vite
 * **Backend:** .NET 8 Core Web API (C#), ASP.NET Core Controllers, Swagger / OpenAPI
 * **AI / LLM Engine:** Live enterprise LLM integration (`https://genailab.tcs.in` with `azure/genailab-maas-gpt-4o-mini`) + resilient fallback extractor
